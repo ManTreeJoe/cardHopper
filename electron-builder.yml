@@ -16,7 +16,8 @@ mac:
     - dmg
     - zip
   icon: assets/icons/icon.icns
-  hardenedRuntime: true
+  hardenedRuntime: false
+  identity: null
   extendInfo:
     LSUIElement: true
 

@@ -16,12 +16,22 @@ async function loadSettings() {
   document.getElementById('destinationFolder').value = settings.destinationFolder || '';
   document.getElementById('organizationScheme').value = settings.organizationScheme || 'date';
   document.getElementById('duplicateHandling').value = settings.duplicateHandling || 'rename';
+  document.getElementById('backupEnabled').checked = settings.backupEnabled || false;
+  document.getElementById('backupFolder').value = settings.backupFolder || '';
+  toggleSubsection('backupEnabled', 'backupSection');
 
   // File types
   document.getElementById('ft-images').checked = settings.fileTypes?.images ?? true;
   document.getElementById('ft-video').checked = settings.fileTypes?.video ?? true;
   document.getElementById('ft-audio').checked = settings.fileTypes?.audio ?? true;
   document.getElementById('ft-raw').checked = settings.fileTypes?.raw ?? true;
+
+  // Import
+  document.getElementById('renameEnabled').checked = settings.renameEnabled || false;
+  document.getElementById('renamePattern').value = settings.renamePattern || '{date}_{seq}';
+  toggleSubsection('renameEnabled', 'renameSection');
+  document.getElementById('promptForLabel').checked = settings.promptForLabel || false;
+  renderWatchedFolders(settings.watchedFolders || []);
 
   // Safety
   document.getElementById('verifyChecksums').checked = settings.verifyChecksums ?? true;
@@ -37,6 +47,12 @@ async function loadSettings() {
   document.getElementById('launchAtLogin').checked = settings.launchAtLogin ?? false;
 }
 
+function toggleSubsection(checkboxId, sectionId) {
+  const section = document.getElementById(sectionId);
+  const checked = document.getElementById(checkboxId).checked;
+  section.style.display = checked ? 'block' : 'none';
+}
+
 // Folder picker
 document.getElementById('pickFolder').addEventListener('click', async () => {
   const folder = await window.cardhopper.pickFolder();
@@ -45,7 +61,14 @@ document.getElementById('pickFolder').addEventListener('click', async () => {
   }
 });
 
-// Auto-save on change: General
+document.getElementById('pickBackupFolder').addEventListener('click', async () => {
+  const folder = await window.cardhopper.pickBackupFolder();
+  if (folder) {
+    document.getElementById('backupFolder').value = folder;
+  }
+});
+
+// Auto-save: General
 document.getElementById('organizationScheme').addEventListener('change', (e) => {
   window.cardhopper.setSetting('organizationScheme', e.target.value);
 });
@@ -54,7 +77,12 @@ document.getElementById('duplicateHandling').addEventListener('change', (e) => {
   window.cardhopper.setSetting('duplicateHandling', e.target.value);
 });
 
-// Auto-save on change: File types
+document.getElementById('backupEnabled').addEventListener('change', (e) => {
+  window.cardhopper.setSetting('backupEnabled', e.target.checked);
+  toggleSubsection('backupEnabled', 'backupSection');
+});
+
+// Auto-save: File types
 ['images', 'video', 'audio', 'raw'].forEach(type => {
   document.getElementById(`ft-${type}`).addEventListener('change', async () => {
     const settings = await window.cardhopper.getSettings();
@@ -64,7 +92,56 @@ document.getElementById('duplicateHandling').addEventListener('change', (e) => {
   });
 });
 
-// Auto-save on change: Safety
+// Auto-save: Import
+document.getElementById('renameEnabled').addEventListener('change', (e) => {
+  window.cardhopper.setSetting('renameEnabled', e.target.checked);
+  toggleSubsection('renameEnabled', 'renameSection');
+});
+
+document.getElementById('renamePattern').addEventListener('change', (e) => {
+  window.cardhopper.setSetting('renamePattern', e.target.value);
+});
+
+document.getElementById('promptForLabel').addEventListener('change', (e) => {
+  window.cardhopper.setSetting('promptForLabel', e.target.checked);
+});
+
+// Watched folders
+function renderWatchedFolders(folders) {
+  const list = document.getElementById('watchedFoldersList');
+  list.innerHTML = '';
+  folders.forEach((folder, i) => {
+    const row = document.createElement('div');
+    row.className = 'watched-folder-row';
+    row.innerHTML = `
+      <span class="watched-folder-path">${folder}</span>
+      <button class="btn btn-small" data-index="${i}">Remove</button>
+    `;
+    row.querySelector('button').addEventListener('click', async () => {
+      const settings = await window.cardhopper.getSettings();
+      const wf = settings.watchedFolders || [];
+      wf.splice(i, 1);
+      window.cardhopper.setSetting('watchedFolders', wf);
+      renderWatchedFolders(wf);
+    });
+    list.appendChild(row);
+  });
+}
+
+document.getElementById('addWatchedFolder').addEventListener('click', async () => {
+  const folder = await window.cardhopper.pickWatchedFolder();
+  if (folder) {
+    const settings = await window.cardhopper.getSettings();
+    const wf = settings.watchedFolders || [];
+    if (!wf.includes(folder)) {
+      wf.push(folder);
+      window.cardhopper.setSetting('watchedFolders', wf);
+      renderWatchedFolders(wf);
+    }
+  }
+});
+
+// Auto-save: Safety
 document.getElementById('verifyChecksums').addEventListener('change', (e) => {
   window.cardhopper.setSetting('verifyChecksums', e.target.checked);
 });
@@ -80,7 +157,7 @@ function updateAutoDeleteWarning() {
   warning.classList.toggle('visible', checked);
 }
 
-// Auto-save on change: Notifications
+// Auto-save: Notifications
 ['onStart', 'onComplete', 'onError'].forEach(key => {
   document.getElementById(`notif-${key}`).addEventListener('change', async () => {
     const settings = await window.cardhopper.getSettings();
@@ -90,7 +167,7 @@ function updateAutoDeleteWarning() {
   });
 });
 
-// Auto-save on change: Advanced
+// Auto-save: Advanced
 document.getElementById('launchAtLogin').addEventListener('change', (e) => {
   window.cardhopper.setSetting('launchAtLogin', e.target.checked);
 });

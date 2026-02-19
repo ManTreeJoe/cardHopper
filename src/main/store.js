@@ -7,6 +7,14 @@ const schema = {
     type: 'string',
     default: ''
   },
+  backupFolder: {
+    type: 'string',
+    default: ''
+  },
+  backupEnabled: {
+    type: 'boolean',
+    default: false
+  },
   organizationScheme: {
     type: 'string',
     enum: ['date', 'flat', 'year-month'],
@@ -34,6 +42,23 @@ const schema = {
     type: 'string',
     enum: ['rename', 'skip', 'overwrite'],
     default: 'rename'
+  },
+  renameEnabled: {
+    type: 'boolean',
+    default: false
+  },
+  renamePattern: {
+    type: 'string',
+    default: '{date}_{seq}'
+  },
+  promptForLabel: {
+    type: 'boolean',
+    default: false
+  },
+  watchedFolders: {
+    type: 'array',
+    items: { type: 'string' },
+    default: []
   },
   notifications: {
     type: 'object',

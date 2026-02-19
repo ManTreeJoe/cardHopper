@@ -22,13 +22,17 @@ class IngestEngine extends EventEmitter {
     }
   }
 
-  async ingest(volume) {
+  async ingest(volume, { label } = {}) {
     const store = getStore();
     const dest = store.get('destinationFolder');
+    const backupFolder = store.get('backupFolder');
+    const backupEnabled = store.get('backupEnabled') && backupFolder;
     const scheme = store.get('organizationScheme');
     const autoDelete = store.get('autoDelete');
     const verifyChecksums = store.get('verifyChecksums');
     const duplicateHandling = store.get('duplicateHandling');
+    const renameEnabled = store.get('renameEnabled');
+    const renamePattern = store.get('renamePattern');
     const extensions = getEnabledExtensions();
     const volumeName = volume.label || path.basename(volume.mountpoint);
 
@@ -36,11 +40,13 @@ class IngestEngine extends EventEmitter {
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
 
-    log.info(`Starting ingest: ${volume.mountpoint} -> ${dest}`);
+    log.info(`Starting ingest: ${volume.mountpoint} -> ${dest}${backupEnabled ? ` + ${backupFolder}` : ''}`);
+    if (label) log.info(`Shoot label: ${label}`);
 
     // Check destination exists
     try {
       await fse.ensureDir(dest);
+      if (backupEnabled) await fse.ensureDir(backupFolder);
     } catch (err) {
       this.emit('error', { volumeName, message: `Cannot create destination: ${err.message}` });
       this.currentVolume = null;
@@ -51,13 +57,13 @@ class IngestEngine extends EventEmitter {
     try {
       const stats = await fse.statfs(dest);
       const freeBytes = stats.bfree * stats.bsize;
-      if (freeBytes < 100 * 1024 * 1024) { // Less than 100MB free
+      if (freeBytes < 100 * 1024 * 1024) {
         this.emit('error', { volumeName, message: 'Destination disk has less than 100MB free space' });
         this.currentVolume = null;
         return;
       }
     } catch {
-      // statfs not available on all platforms, proceed anyway
+      // statfs not available on all platforms
     }
 
     // Scan for media files
@@ -72,7 +78,7 @@ class IngestEngine extends EventEmitter {
 
     if (files.length === 0) {
       log.info(`No media files found on ${volumeName}`);
-      this.emit('complete', { volumeName, fileCount: 0, totalSize: 0 });
+      this.emit('complete', { volumeName, fileCount: 0, totalSize: 0, skippedCount: 0, errorCount: 0, elapsed: 0 });
       this.currentVolume = null;
       return;
     }
@@ -88,6 +94,7 @@ class IngestEngine extends EventEmitter {
     let skippedCount = 0;
     let totalBytesCopied = 0;
     let errorCount = 0;
+    let sequenceNum = 0;
     const startTime = Date.now();
 
     for (let i = 0; i < files.length; i++) {
@@ -99,6 +106,7 @@ class IngestEngine extends EventEmitter {
       }
 
       const file = files[i];
+      sequenceNum++;
 
       // Check if already ingested (resume support)
       if (manifest.ingested[file.relativePath]?.verified) {
@@ -118,8 +126,9 @@ class IngestEngine extends EventEmitter {
 
         if (signal.aborted) break;
 
-        // Step 2: Determine destination
-        const rawDestPath = buildDestPath(dest, file, scheme);
+        // Step 2: Determine destination (with rename + label support)
+        const orgOptions = { label, renameEnabled, renamePattern, sequenceNum };
+        const rawDestPath = buildDestPath(dest, file, scheme, orgOptions);
 
         // Step 3: Resolve duplicates
         const { destPath, action } = await resolveDuplicate(
@@ -142,13 +151,22 @@ class IngestEngine extends EventEmitter {
           continue;
         }
 
-        // Step 4: Stream-copy to temp file then rename
-        await copyFile(file.absolutePath, destPath, {
-          signal,
-          onProgress: (bytes) => {
-            // Could emit fine-grained progress here
+        // Step 4: Stream-copy to primary destination
+        await copyFile(file.absolutePath, destPath, { signal });
+
+        if (signal.aborted) break;
+
+        // Step 4b: Copy to backup destination if enabled
+        let backupDestPath = null;
+        if (backupEnabled) {
+          backupDestPath = buildDestPath(backupFolder, file, scheme, orgOptions);
+          try {
+            await copyFile(file.absolutePath, backupDestPath, { signal });
+          } catch (backupErr) {
+            log.warn(`Backup copy failed for ${file.fileName}: ${backupErr.message}`);
+            // Don't fail the whole ingest for a backup error
           }
-        });
+        }
 
         if (signal.aborted) break;
 
@@ -168,7 +186,6 @@ class IngestEngine extends EventEmitter {
               this.emit('error', { volumeName, message: `Checksum mismatch: ${file.fileName}` });
             } else {
               log.warn(`Checksum mismatch for ${file.fileName}, retry ${retries}/2`);
-              // Re-copy
               await copyFile(file.absolutePath, destPath, { signal });
             }
           }
@@ -187,6 +204,7 @@ class IngestEngine extends EventEmitter {
         // Record in manifest
         manifest.ingested[file.relativePath] = {
           destPath,
+          backupDestPath,
           sourceHash,
           verified,
           deleted: autoDelete && verified,
@@ -215,7 +233,6 @@ class IngestEngine extends EventEmitter {
 
         log.error(`Error processing ${file.fileName}:`, err);
         errorCount++;
-        // Continue with next file
       }
     }
 
@@ -223,6 +240,7 @@ class IngestEngine extends EventEmitter {
     manifest.completedAt = new Date().toISOString();
     manifest.volumeName = volumeName;
     manifest.volumeMountpoint = volume.mountpoint;
+    manifest.label = label || null;
     await saveManifest(manifestPath, manifest);
 
     const elapsed = Date.now() - startTime;

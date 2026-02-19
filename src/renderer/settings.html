@@ -12,8 +12,8 @@
     <nav class="tabs">
       <button class="tab active" data-tab="general">General</button>
       <button class="tab" data-tab="filetypes">File Types</button>
+      <button class="tab" data-tab="import">Import</button>
       <button class="tab" data-tab="safety">Safety</button>
-      <button class="tab" data-tab="notifications">Notifications</button>
       <button class="tab" data-tab="advanced">Advanced</button>
     </nav>
 
@@ -24,6 +24,20 @@
         <div class="folder-picker">
           <input type="text" id="destinationFolder" readonly>
           <button id="pickFolder">Browse...</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="backupEnabled">
+          <span>Backup to a second location</span>
+        </label>
+        <div id="backupSection" class="subsection">
+          <div class="folder-picker" style="margin-top: 8px;">
+            <input type="text" id="backupFolder" readonly placeholder="Choose backup folder...">
+            <button id="pickBackupFolder">Browse...</button>
+          </div>
+          <span class="hint">Files will be copied to both destinations simultaneously.</span>
         </div>
       </div>
 
@@ -83,6 +97,38 @@
       </div>
     </section>
 
+    <!-- Import Tab (Rename + Labels + Folder Watch) -->
+    <section class="panel" id="tab-import">
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="renameEnabled">
+          <span>Rename files on import</span>
+        </label>
+        <div id="renameSection" class="subsection">
+          <input type="text" id="renamePattern" placeholder="{date}_{seq}" style="margin-top: 8px;">
+          <span class="hint">
+            Tokens: {date} {year} {month} {day} {seq} {original} {label}<br>
+            Example: {date}_{seq} → 2025-12-25_001.ARW
+          </span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="promptForLabel">
+          <span>Ask for shoot name on each import</span>
+        </label>
+        <span class="hint">Appends the name to the folder: 2025-12-25_Wedding/</span>
+      </div>
+
+      <div class="field" style="margin-top: 24px;">
+        <label>Watched Folders</label>
+        <span class="hint" style="display:block; margin-bottom: 8px;">Auto-import new media files from these folders (e.g. drone WiFi transfer folder).</span>
+        <div id="watchedFoldersList"></div>
+        <button class="btn" id="addWatchedFolder" style="margin-top: 8px;">Add Folder...</button>
+      </div>
+    </section>
+
     <!-- Safety Tab -->
     <section class="panel" id="tab-safety">
       <div class="field">
@@ -102,24 +148,22 @@
           <strong>Warning:</strong> This will permanently delete files from your SD card after they have been successfully copied and verified. Only enable this if you want a clean card ready to shoot.
         </div>
       </div>
-    </section>
 
-    <!-- Notifications Tab -->
-    <section class="panel" id="tab-notifications">
+      <div class="field" style="margin-top: 12px;">
+        <label>Notifications</label>
+      </div>
       <div class="field">
         <label class="checkbox-label">
           <input type="checkbox" id="notif-onStart">
           <span>Notify when ingest starts</span>
         </label>
       </div>
-
       <div class="field">
         <label class="checkbox-label">
           <input type="checkbox" id="notif-onComplete">
           <span>Notify when ingest completes</span>
         </label>
       </div>
-
       <div class="field">
         <label class="checkbox-label">
           <input type="checkbox" id="notif-onError">

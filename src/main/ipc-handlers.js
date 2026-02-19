@@ -19,7 +19,6 @@ function registerIpcHandlers() {
     store.set(key, value);
     log.info(`Setting changed: ${key} = ${JSON.stringify(value)}`);
 
-    // Handle auto-launch toggle
     if (key === 'launchAtLogin') {
       try {
         if (value) {
@@ -46,8 +45,27 @@ function registerIpcHandlers() {
     return folder;
   });
 
+  ipcMain.handle('pick-backup-folder', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Choose Backup Folder'
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const folder = result.filePaths[0];
+    store.set('backupFolder', folder);
+    return folder;
+  });
+
+  ipcMain.handle('pick-watched-folder', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Choose Folder to Watch'
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
   ipcMain.handle('get-status', () => {
-    // Will be filled in when ingest engine is wired up
     return { status: 'idle', message: 'Waiting for card' };
   });
 
