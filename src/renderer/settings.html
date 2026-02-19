@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>CardHopper Settings</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="window">
+    <nav class="tabs">
+      <button class="tab active" data-tab="general">General</button>
+      <button class="tab" data-tab="filetypes">File Types</button>
+      <button class="tab" data-tab="safety">Safety</button>
+      <button class="tab" data-tab="notifications">Notifications</button>
+      <button class="tab" data-tab="advanced">Advanced</button>
+    </nav>
+
+    <!-- General Tab -->
+    <section class="panel active" id="tab-general">
+      <div class="field">
+        <label>Destination Folder</label>
+        <div class="folder-picker">
+          <input type="text" id="destinationFolder" readonly>
+          <button id="pickFolder">Browse...</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Organization Scheme</label>
+        <select id="organizationScheme">
+          <option value="date">Date folders (2025-01-15/)</option>
+          <option value="year-month">Year/Month (2025/01/)</option>
+          <option value="flat">Flat (all in one folder)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Duplicate Handling</label>
+        <select id="duplicateHandling">
+          <option value="rename">Rename with suffix (_1, _2...)</option>
+          <option value="skip">Skip if identical</option>
+          <option value="overwrite">Overwrite existing</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- File Types Tab -->
+    <section class="panel" id="tab-filetypes">
+      <p class="hint">Choose which media types to import from cards.</p>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="ft-images">
+          <span>Images</span>
+        </label>
+        <span class="hint">.jpg, .jpeg, .png, .tiff, .bmp, .gif, .heic, .webp</span>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="ft-video">
+          <span>Video</span>
+        </label>
+        <span class="hint">.mp4, .mov, .avi, .mkv, .mts, .m2ts, .wmv, .webm</span>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="ft-audio">
+          <span>Audio</span>
+        </label>
+        <span class="hint">.mp3, .wav, .aac, .flac, .ogg, .m4a, .aiff</span>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="ft-raw">
+          <span>RAW Photos</span>
+        </label>
+        <span class="hint">.cr2, .cr3, .nef, .arw, .orf, .rw2, .dng, .raf</span>
+      </div>
+    </section>
+
+    <!-- Safety Tab -->
+    <section class="panel" id="tab-safety">
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="verifyChecksums">
+          <span>Verify checksums after copy</span>
+        </label>
+        <span class="hint">Computes SHA-256 hashes to ensure files copied correctly. Recommended.</span>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label warning-toggle">
+          <input type="checkbox" id="autoDelete">
+          <span>Auto-delete originals after verified copy</span>
+        </label>
+        <div class="warning-box" id="autoDeleteWarning">
+          <strong>Warning:</strong> This will permanently delete files from your SD card after they have been successfully copied and verified. Only enable this if you want a clean card ready to shoot.
+        </div>
+      </div>
+    </section>
+
+    <!-- Notifications Tab -->
+    <section class="panel" id="tab-notifications">
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="notif-onStart">
+          <span>Notify when ingest starts</span>
+        </label>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="notif-onComplete">
+          <span>Notify when ingest completes</span>
+        </label>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="notif-onError">
+          <span>Notify on errors</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Advanced Tab -->
+    <section class="panel" id="tab-advanced">
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="launchAtLogin">
+          <span>Launch CardHopper at login</span>
+        </label>
+      </div>
+
+      <div class="field">
+        <p class="hint">CardHopper v1.0.0</p>
+        <p class="hint">Settings are saved automatically.</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

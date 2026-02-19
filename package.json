@@ -1,0 +1,26 @@
+{
+  "name": "cardhopper",
+  "version": "1.0.0",
+  "description": "SD Card auto-ingest app — automatically copies media from SD cards to your computer",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "auto-launch": "^5.0.6",
+    "chokidar": "^4.0.0",
+    "electron-log": "^5.2.0",
+    "electron-store": "^8.2.0",
+    "fs-extra": "^11.2.0"
+  }
+}
