@@ -1,5 +1,6 @@
 // Generate a 1024x1024 PNG app icon for CardHopper
-// Then use sips + iconutil to create .icns
+// macOS applies the rounded squircle mask automatically on Big Sur+
+// Content should fill ~80% of canvas (centered in safe area)
 const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
@@ -53,14 +54,12 @@ function createPNG(width, height, pixels) {
   return Buffer.concat([signature, chunk('IHDR', ihdr), chunk('IDAT', compressed), iend]);
 }
 
-// Draw the icon
 const px = new Uint8Array(SIZE * SIZE * 4);
 
 function setPixel(x, y, r, g, b, a) {
   x = Math.round(x); y = Math.round(y);
   if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
   const i = (y * SIZE + x) * 4;
-  // Alpha blend
   const srcA = a / 255;
   const dstA = px[i + 3] / 255;
   const outA = srcA + dstA * (1 - srcA);
@@ -72,119 +71,151 @@ function setPixel(x, y, r, g, b, a) {
   }
 }
 
-function fillCircle(cx, cy, r, red, green, blue, alpha) {
-  const r2 = r * r;
-  for (let dy = -r; dy <= r; dy++) {
-    for (let dx = -r; dx <= r; dx++) {
-      if (dx * dx + dy * dy <= r2) {
-        setPixel(cx + dx, cy + dy, red, green, blue, alpha);
-      }
-    }
-  }
-}
-
 function fillRect(x1, y1, x2, y2, r, g, b, a) {
-  for (let y = y1; y <= y2; y++) {
-    for (let x = x1; x <= x2; x++) {
+  for (let y = Math.round(y1); y <= Math.round(y2); y++) {
+    for (let x = Math.round(x1); x <= Math.round(x2); x++) {
       setPixel(x, y, r, g, b, a);
     }
   }
 }
 
-function fillRoundedRect(x1, y1, x2, y2, radius, r, g, b, a) {
-  for (let y = y1; y <= y2; y++) {
-    for (let x = x1; x <= x2; x++) {
-      // Check corners
-      let inside = true;
-      if (x < x1 + radius && y < y1 + radius) {
-        inside = ((x - (x1 + radius)) ** 2 + (y - (y1 + radius)) ** 2) <= radius * radius;
-      } else if (x > x2 - radius && y < y1 + radius) {
-        inside = ((x - (x2 - radius)) ** 2 + (y - (y1 + radius)) ** 2) <= radius * radius;
-      } else if (x < x1 + radius && y > y2 - radius) {
-        inside = ((x - (x1 + radius)) ** 2 + (y - (y2 - radius)) ** 2) <= radius * radius;
-      } else if (x > x2 - radius && y > y2 - radius) {
-        inside = ((x - (x2 - radius)) ** 2 + (y - (y2 - radius)) ** 2) <= radius * radius;
+// Draw a thick outlined rectangle (no fill)
+function strokeRect(x1, y1, x2, y2, thickness, r, g, b, a) {
+  fillRect(x1, y1, x2, y1 + thickness, r, g, b, a);           // top
+  fillRect(x1, y2 - thickness, x2, y2, r, g, b, a);           // bottom
+  fillRect(x1, y1, x1 + thickness, y2, r, g, b, a);           // left
+  fillRect(x2 - thickness, y1, x2, y2, r, g, b, a);           // right
+}
+
+// Draw a thick line between two points
+function strokeLine(x1, y1, x2, y2, thickness, r, g, b, a) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const steps = Math.ceil(len);
+  for (let s = 0; s <= steps; s++) {
+    const t = s / steps;
+    const cx = x1 + dx * t;
+    const cy = y1 + dy * t;
+    for (let ty = -thickness / 2; ty <= thickness / 2; ty++) {
+      for (let tx = -thickness / 2; tx <= thickness / 2; tx++) {
+        setPixel(cx + tx, cy + ty, r, g, b, a);
       }
-      if (inside) setPixel(x, y, r, g, b, a);
     }
   }
 }
 
-// Color palette from nathanbupte.com
-const bgR = 0x0a, bgG = 0x0a, bgB = 0x0a;          // #0a0a0a off-black
-const surfR = 0x1a, surfG = 0x1a, surfB = 0x1a;      // #1a1a1a surface
-const accentR = 0xe8, accentG = 0x6c, accentB = 0x2a; // #e86c2a orange
-const accHovR = 0xf2, accHovG = 0x8a, accHovB = 0x4a; // #f28a4a orange hover
-const textR = 0xf5, textG = 0xf0, textB = 0xe8;       // #f5f0e8 cream text
-const borderR = 0x2a, borderG = 0x25, borderB = 0x20;  // #2a2520 border
+// ── Colors ──
+const bgR = 0x0a, bgG = 0x0a, bgB = 0x0a;
+const acR = 0xe8, acG = 0x6c, acB = 0x2a;   // #e86c2a orange
+const acLR = 0xf2, acLG = 0x8a, acLB = 0x4a; // #f28a4a lighter orange
+const dimR = 0x3a, dimG = 0x28, dimB = 0x15;  // dim orange for retro glow
 
-// Background: off-black rounded rect
-fillRoundedRect(0, 0, SIZE - 1, SIZE - 1, 200, bgR, bgG, bgB, 255);
+// ── Background: solid off-black, full bleed ──
+fillRect(0, 0, SIZE - 1, SIZE - 1, bgR, bgG, bgB, 255);
 
-// Subtle gradient — slightly lighter at top
-for (let y = 0; y < SIZE; y++) {
-  const t = y / SIZE;
-  const r = Math.round(0x11 * (1 - t) + bgR * t);
-  const g = Math.round(0x11 * (1 - t) + bgG * t);
-  const b = Math.round(0x11 * (1 - t) + bgB * t);
+// ── Retro scanline texture ──
+for (let y = 0; y < SIZE; y += 4) {
   for (let x = 0; x < SIZE; x++) {
-    const i = (y * SIZE + x) * 4;
-    if (px[i + 3] > 0) {
-      px[i] = r; px[i + 1] = g; px[i + 2] = b;
-    }
+    setPixel(x, y, 0x0e, 0x0e, 0x0e, 40);
   }
 }
 
-// SD Card shape (cream/warm white, centered)
-const cardW = 420, cardH = 560;
+// ── SD Card outline (orange, large, centered in safe area) ──
+// macOS safe area: ~100px inset on each side -> 824x824 usable
+// Card proportions: roughly 24mm x 32mm = 3:4 ratio
+const STROKE = 28;           // thick retro outline
+const cardW = 480;
+const cardH = 640;
 const cardX = (SIZE - cardW) / 2;
-const cardY = (SIZE - cardH) / 2 - 20;
-const notch = 100;
+const cardY = (SIZE - cardH) / 2;
+const notch = 120;            // corner notch size
 
-// Card body
-for (let y = cardY + notch; y < cardY + cardH; y++) {
-  for (let x = cardX; x < cardX + cardW; x++) {
-    setPixel(x, y, textR, textG, textB, 235);
-  }
-}
-// Top part (with notched corner)
-for (let y = cardY; y < cardY + notch; y++) {
-  for (let x = cardX + notch; x < cardX + cardW; x++) {
-    setPixel(x, y, textR, textG, textB, 235);
-  }
-}
-// Diagonal notch
-for (let i = 0; i < notch; i++) {
-  for (let j = 0; j <= i; j++) {
-    setPixel(cardX + j, cardY + notch - i, textR, textG, textB, 235);
-  }
+// Draw the SD card outline path:
+//    notch corner at top-left, rest is a rectangle
+//
+//        (cardX + notch, cardY)
+//       /                      (cardX + cardW, cardY)
+//      /                       |
+//     (cardX, cardY + notch)   |
+//     |                        |
+//     |                        |
+//     (cardX, cardY + cardH)---(cardX + cardW, cardY + cardH)
+
+const oR = acR, oG = acG, oB = acB, oA = 255;
+
+// Top edge (from notch to top-right)
+fillRect(cardX + notch, cardY, cardX + cardW, cardY + STROKE, oR, oG, oB, oA);
+// Right edge
+fillRect(cardX + cardW - STROKE, cardY, cardX + cardW, cardY + cardH, oR, oG, oB, oA);
+// Bottom edge
+fillRect(cardX, cardY + cardH - STROKE, cardX + cardW, cardY + cardH, oR, oG, oB, oA);
+// Left edge (from notch down)
+fillRect(cardX, cardY + notch, cardX + STROKE, cardY + cardH, oR, oG, oB, oA);
+// Notch diagonal
+strokeLine(cardX + notch, cardY, cardX, cardY + notch, STROKE, oR, oG, oB, oA);
+// Fill the notch corner joint at top
+fillRect(cardX + notch - STROKE / 2, cardY, cardX + notch + STROKE / 2, cardY + STROKE, oR, oG, oB, oA);
+// Fill the notch corner joint at left
+fillRect(cardX, cardY + notch - STROKE / 2, cardX + STROKE, cardY + notch + STROKE / 2, oR, oG, oB, oA);
+
+// ── Contact pins (5 small orange rectangles near top) ──
+const pinAreaX = cardX + notch + 50;
+const pinY = cardY + 55;
+const pinW = 30;
+const pinH = 80;
+const pinGap = 52;
+for (let p = 0; p < 5; p++) {
+  const px1 = pinAreaX + p * pinGap;
+  // Outlined pins for retro look
+  strokeRect(px1, pinY, px1 + pinW, pinY + pinH, 6, oR, oG, oB, 200);
 }
 
-// Contact pins (orange accent)
-for (let pin = 0; pin < 5; pin++) {
-  const px1 = cardX + notch + 40 + pin * 55;
-  fillRect(px1, cardY + 20, px1 + 30, cardY + 80, accentR, accentG, accentB, 230);
-}
-
-// Down arrow (orange accent, in lower half of card) - represents ingest
+// ── Down arrow (orange outline, centered in lower portion of card) ──
 const arrowCx = SIZE / 2;
-const arrowCy = cardY + cardH * 0.6;
-const arrowW = 70;
-const arrowH = 140;
-const headW = 120;
-const headH = 80;
+const arrowCy = cardY + cardH * 0.58;
+const shaftW = 70;
+const shaftH = 160;
+const headW = 180;
+const headH = 130;
+const aS = 20; // arrow stroke thickness
 
-// Arrow shaft
-fillRect(arrowCx - arrowW/2, arrowCy - arrowH/2, arrowCx + arrowW/2, arrowCy + arrowH/2 - headH/2, accentR, accentG, accentB, 240);
-// Arrow head (triangle)
-for (let row = 0; row < headH; row++) {
-  const t = row / headH;
-  const halfWidth = headW * (1 - t);
-  fillRect(arrowCx - halfWidth, arrowCy + arrowH/2 - headH + row, arrowCx + halfWidth, arrowCy + arrowH/2 - headH + row, accentR, accentG, accentB, 240);
+// Arrow shaft (outlined)
+const sx1 = arrowCx - shaftW / 2;
+const sy1 = arrowCy - shaftH / 2;
+const sx2 = arrowCx + shaftW / 2;
+const sy2 = arrowCy + shaftH / 2 - headH * 0.4;
+strokeRect(sx1, sy1, sx2, sy2, aS, oR, oG, oB, oA);
+// Fill shaft interior with bg to ensure it's hollow
+fillRect(sx1 + aS, sy1 + aS, sx2 - aS, sy2, bgR, bgG, bgB, 255);
+
+// Arrow head (outlined triangle pointing down)
+const tipY = arrowCy + shaftH / 2 + headH * 0.3;
+const headBaseY = arrowCy + shaftH / 2 - headH * 0.5;
+
+// Left edge of arrowhead
+strokeLine(arrowCx - headW / 2, headBaseY, arrowCx, tipY, aS, oR, oG, oB, oA);
+// Right edge of arrowhead
+strokeLine(arrowCx + headW / 2, headBaseY, arrowCx, tipY, aS, oR, oG, oB, oA);
+// Top edge of arrowhead (connecting the two sides)
+strokeLine(arrowCx - headW / 2, headBaseY, arrowCx - shaftW / 2, headBaseY, aS, oR, oG, oB, oA);
+strokeLine(arrowCx + headW / 2, headBaseY, arrowCx + shaftW / 2, headBaseY, aS, oR, oG, oB, oA);
+
+// ── Retro glow effect — faint orange around the card edges ──
+for (let pass = 0; pass < 3; pass++) {
+  const spread = (pass + 1) * 8;
+  const glowA = 15 - pass * 4;
+  // Glow on right edge
+  fillRect(cardX + cardW, cardY, cardX + cardW + spread, cardY + cardH, dimR, dimG, dimB, glowA);
+  // Glow on bottom
+  fillRect(cardX, cardY + cardH, cardX + cardW, cardY + cardH + spread, dimR, dimG, dimB, glowA);
+  // Glow on left
+  fillRect(cardX - spread, cardY + notch, cardX, cardY + cardH, dimR, dimG, dimB, glowA);
 }
 
+// ── Output ──
 const outDir = path.join(__dirname, '..', 'assets', 'icons');
 const pngPath = path.join(outDir, 'icon.png');
-const png = createPNG(SIZE, SIZE, px);
-fs.writeFileSync(pngPath, png);
-console.log(`Created ${pngPath} (${png.length} bytes)`);
+const pngBuf = createPNG(SIZE, SIZE, px);
+fs.writeFileSync(pngPath, pngBuf);
+console.log(`Created ${pngPath} (${pngBuf.length} bytes)`);

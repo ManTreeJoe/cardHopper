@@ -109,12 +109,22 @@ class IngestEngine extends EventEmitter {
       sequenceNum++;
 
       // Check if already ingested (resume support)
-      if (manifest.ingested[file.relativePath]?.verified) {
-        copiedCount++;
-        skippedCount++;
-        totalBytesCopied += file.size;
-        this._emitProgress({ copiedCount, skippedCount, errorCount, total: files.length, totalBytesCopied, totalSourceSize, startTime, fileName: file.fileName, volumeName });
-        continue;
+      // Only skip if the destination file actually exists on disk
+      const manifestEntry = manifest.ingested[file.relativePath];
+      if (manifestEntry?.verified && manifestEntry.destPath) {
+        try {
+          await fse.access(manifestEntry.destPath);
+          // File exists at destination — safe to skip
+          copiedCount++;
+          skippedCount++;
+          totalBytesCopied += file.size;
+          this._emitProgress({ copiedCount, skippedCount, errorCount, total: files.length, totalBytesCopied, totalSourceSize, startTime, fileName: file.fileName, volumeName });
+          continue;
+        } catch {
+          // Destination file missing — re-import it
+          log.info(`Manifest says verified but file missing at ${manifestEntry.destPath}, re-importing`);
+          delete manifest.ingested[file.relativePath];
+        }
       }
 
       try {

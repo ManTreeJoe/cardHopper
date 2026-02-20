@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog } = require('electron');
 const log = require('electron-log');
 const chokidar = require('chokidar');
 const { getStore, getEnabledExtensions } = require('./store');
-const { createTray, setIngestProgress, setIngestComplete, clearIngest, setPaused, setActiveIcon } = require('./tray');
+const { createTray, setIngestProgress, setIngestComplete, clearIngest, setPaused, setActiveIcon, addVolume, removeVolume } = require('./tray');
 const { createSettingsWindow } = require('./settings-window');
 const { registerIpcHandlers } = require('./ipc-handlers');
 const { createVolumeWatcher } = require('./volume/volume-watcher');
@@ -60,6 +60,10 @@ app.whenReady().then(async () => {
       if (!paused && ingestQueue.length > 0) {
         processQueue();
       }
+    },
+    cancelImport: () => {
+      log.info('User cancelled import');
+      if (ingestEngine) ingestEngine.abort();
     }
   });
 
@@ -71,7 +75,9 @@ app.whenReady().then(async () => {
 
   // Wire volume events to ingest
   volumeWatcher.on('volume-added', (volume) => {
-    log.info(`Volume added: ${volume.mountpoint} (${volume.label || 'unlabeled'})`);
+    const vName = volume.label || path.basename(volume.mountpoint);
+    log.info(`Volume added: ${volume.mountpoint} (${vName})`);
+    addVolume(vName);
 
     if (store.get('paused')) {
       log.info('Paused — skipping ingest');
@@ -82,7 +88,9 @@ app.whenReady().then(async () => {
   });
 
   volumeWatcher.on('volume-removed', (volume) => {
+    const vName = volume.label || path.basename(volume.mountpoint);
     log.info(`Volume removed: ${volume.mountpoint}`);
+    removeVolume(vName);
 
     if (ingestEngine.currentVolume &&
         ingestEngine.currentVolume.mountpoint === volume.mountpoint) {

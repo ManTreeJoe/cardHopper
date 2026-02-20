@@ -1,23 +1,32 @@
-const { Tray, Menu, nativeImage, shell } = require('electron');
+const { Tray, BrowserWindow, nativeImage, ipcMain, screen, shell, app } = require('electron');
 const path = require('path');
 const log = require('electron-log');
 const { getStore } = require('./store');
 
 let tray = null;
-let isPaused = false;
-let onOpenSettings = null;
-let onTogglePause = null;
+let popoverWin = null;
+let lastBlurTime = 0;
 
-// Current ingest state
-let ingestState = null;   // null = idle, object = active ingest
-let lastImport = null;    // summary of last completed import
+// Callbacks from main.js
+let callbacks = {};
 
-function createTray({ openSettings, togglePause }) {
-  onOpenSettings = openSettings;
-  onTogglePause = togglePause;
+// ── State ──
+
+const trayState = {
+  appState: 'idle',        // 'idle' | 'importing'
+  isPaused: false,
+  import: null,            // progress data during import
+  lastImport: null,        // summary after import
+  activeVolume: null,      // currently importing volume name
+  detectedVolumes: []      // list of detected volume names
+};
+
+// ── Create ──
+
+function createTray({ openSettings, togglePause, cancelImport }) {
+  callbacks = { openSettings, togglePause, cancelImport };
 
   const iconPath = path.join(__dirname, '..', '..', 'assets', 'icons', 'tray-iconTemplate.png');
-
   let icon;
   try {
     icon = nativeImage.createFromPath(iconPath);
@@ -28,182 +37,249 @@ function createTray({ openSettings, togglePause }) {
 
   tray = new Tray(icon);
   tray.setToolTip('CardHopper');
-  updateMenu();
 
-  log.info('Tray created');
+  // Click toggles popover (no native context menu)
+  tray.on('click', (_event, bounds) => {
+    togglePopover(bounds);
+  });
+  tray.on('right-click', (_event, bounds) => {
+    togglePopover(bounds);
+  });
+
+  createPopoverWindow();
+  registerIpc();
+
+  log.info('Tray created with popover');
   return tray;
 }
 
-function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+// ── Popover Window ──
+
+function createPopoverWindow() {
+  popoverWin = new BrowserWindow({
+    width: 340,
+    height: 440,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    hasShadow: false,
+    fullscreenable: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, '..', 'renderer', 'tray-preload.js')
+    }
+  });
+
+  popoverWin.loadFile(path.join(__dirname, '..', 'renderer', 'tray-menu.html'));
+
+  // Hide on blur (click outside)
+  popoverWin.on('blur', () => {
+    lastBlurTime = Date.now();
+    popoverWin.hide();
+  });
+
+  // Prevent navigation
+  popoverWin.webContents.on('will-navigate', (e) => e.preventDefault());
+
+  // macOS: set window level above menu bar
+  if (process.platform === 'darwin') {
+    popoverWin.setAlwaysOnTop(true, 'pop-up-menu');
+  }
 }
 
-function formatDuration(ms) {
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  const remainSec = sec % 60;
-  if (min < 60) return `${min}m ${remainSec}s`;
-  const hr = Math.floor(min / 60);
-  const remainMin = min % 60;
-  return `${hr}h ${remainMin}m`;
-}
-
-function formatSpeed(bytesPerSec) {
-  return `${formatBytes(bytesPerSec)}/s`;
-}
-
-function updateMenu() {
-  if (!tray) return;
-
-  const template = [
-    { label: 'CardHopper', type: 'normal', enabled: false }
-  ];
-
-  if (ingestState) {
-    // ── Active ingest stats ──
-    template.push({ type: 'separator' });
-    template.push({ label: `Importing from ${ingestState.volumeName}`, type: 'normal', enabled: false });
-    template.push({ type: 'separator' });
-
-    const pct = ingestState.percent || 0;
-    const bar = buildProgressBar(pct);
-    template.push({ label: `${bar}  ${pct}%`, type: 'normal', enabled: false });
-    template.push({ label: `Files: ${ingestState.current} / ${ingestState.total}`, type: 'normal', enabled: false });
-    template.push({ label: `Size: ${formatBytes(ingestState.totalBytesCopied)} / ${formatBytes(ingestState.totalSourceSize)}`, type: 'normal', enabled: false });
-
-    if (ingestState.bytesPerSec > 0) {
-      template.push({ label: `Speed: ${formatSpeed(ingestState.bytesPerSec)}`, type: 'normal', enabled: false });
-    }
-    if (ingestState.etaMs > 0) {
-      template.push({ label: `Time left: ~${formatDuration(ingestState.etaMs)}`, type: 'normal', enabled: false });
-    }
-    if (ingestState.skippedCount > 0) {
-      template.push({ label: `Skipped: ${ingestState.skippedCount} (already imported)`, type: 'normal', enabled: false });
-    }
-    if (ingestState.errorCount > 0) {
-      template.push({ label: `Errors: ${ingestState.errorCount}`, type: 'normal', enabled: false });
-    }
-
-    template.push({ label: `Current: ${ingestState.fileName}`, type: 'normal', enabled: false });
-  } else if (lastImport) {
-    // ── Last import summary ──
-    template.push({ type: 'separator' });
-    template.push({ label: 'Last Import', type: 'normal', enabled: false });
-    template.push({ type: 'separator' });
-    template.push({ label: `Card: ${lastImport.volumeName}`, type: 'normal', enabled: false });
-    template.push({ label: `Files: ${lastImport.fileCount} copied`, type: 'normal', enabled: false });
-    template.push({ label: `Size: ${formatBytes(lastImport.totalSize)}`, type: 'normal', enabled: false });
-    template.push({ label: `Duration: ${formatDuration(lastImport.elapsed)}`, type: 'normal', enabled: false });
-
-    if (lastImport.skippedCount > 0) {
-      template.push({ label: `Skipped: ${lastImport.skippedCount} duplicates`, type: 'normal', enabled: false });
-    }
-    if (lastImport.errorCount > 0) {
-      template.push({ label: `Errors: ${lastImport.errorCount}`, type: 'normal', enabled: false });
-    }
-    if (lastImport.avgSpeed) {
-      template.push({ label: `Avg speed: ${formatSpeed(lastImport.avgSpeed)}`, type: 'normal', enabled: false });
-    }
-
-    // Open destination folder
-    template.push({ type: 'separator' });
-    template.push({
-      label: 'Open Import Folder',
-      type: 'normal',
-      click: () => {
-        const dest = getStore().get('destinationFolder');
-        if (dest) shell.openPath(dest);
-      }
-    });
-  } else {
-    // ── Idle ──
-    template.push({ type: 'separator' });
-    template.push({ label: isPaused ? 'Paused' : 'Idle — waiting for card', type: 'normal', enabled: false });
+function togglePopover(trayBounds) {
+  if (!popoverWin || popoverWin.isDestroyed()) {
+    createPopoverWindow();
   }
 
-  template.push({ type: 'separator' });
-  template.push({
-    label: 'Open Settings...',
-    type: 'normal',
-    click: () => onOpenSettings && onOpenSettings()
+  // If the popover was just closed by blur, don't reopen immediately
+  if (Date.now() - lastBlurTime < 300) return;
+
+  if (popoverWin.isVisible()) {
+    popoverWin.hide();
+  } else {
+    positionPopover(trayBounds);
+    sendState();
+    popoverWin.show();
+    popoverWin.focus();
+  }
+}
+
+function positionPopover(trayBounds) {
+  if (!popoverWin || popoverWin.isDestroyed()) return;
+
+  const winBounds = popoverWin.getBounds();
+  const display = screen.getDisplayNearestPoint({
+    x: trayBounds.x,
+    y: trayBounds.y
   });
-  template.push({
-    label: isPaused ? 'Resume' : 'Pause',
-    type: 'normal',
-    click: () => onTogglePause && onTogglePause()
+
+  let x = Math.round(trayBounds.x + trayBounds.width / 2 - winBounds.width / 2);
+  let y;
+
+  if (process.platform === 'darwin') {
+    // macOS: tray is at top, window goes below
+    y = trayBounds.y + trayBounds.height + 4;
+  } else {
+    // Windows/Linux: tray at bottom, window goes above
+    y = trayBounds.y - winBounds.height - 4;
+  }
+
+  // Keep on screen horizontally
+  const maxX = display.bounds.x + display.bounds.width - winBounds.width - 8;
+  if (x > maxX) x = maxX;
+  if (x < display.bounds.x + 8) x = display.bounds.x + 8;
+
+  popoverWin.setPosition(x, y);
+}
+
+// ── IPC ──
+
+function registerIpc() {
+  ipcMain.handle('tray-get-state', () => {
+    return { ...trayState };
   });
-  template.push({ type: 'separator' });
-  template.push({
-    label: 'Quit CardHopper',
-    type: 'normal',
-    click: () => {
-      const { app } = require('electron');
-      app.quit();
+
+  ipcMain.on('tray-cancel-import', () => {
+    if (callbacks.cancelImport) callbacks.cancelImport();
+  });
+
+  ipcMain.on('tray-open-settings', () => {
+    popoverWin?.hide();
+    if (callbacks.openSettings) callbacks.openSettings();
+  });
+
+  ipcMain.on('tray-toggle-pause', () => {
+    if (callbacks.togglePause) callbacks.togglePause();
+  });
+
+  ipcMain.on('tray-open-import-folder', () => {
+    popoverWin?.hide();
+    const dest = getStore().get('destinationFolder');
+    if (dest) shell.openPath(dest);
+  });
+
+  ipcMain.on('tray-about', () => {
+    popoverWin?.hide();
+    const { dialog } = require('electron');
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'About CardHopper',
+      message: 'CardHopper',
+      detail: `Version ${app.getVersion()}\n\nAutomatic SD card media importer.\nBuilt with Electron.\n\nCopyright \u00A9 2025`,
+      buttons: ['OK']
+    });
+  });
+
+  ipcMain.on('tray-quit', () => {
+    app.quit();
+  });
+
+  ipcMain.on('tray-set-height', (_event, height) => {
+    if (popoverWin && !popoverWin.isDestroyed()) {
+      const [w] = popoverWin.getSize();
+      popoverWin.setSize(w, Math.min(Math.max(height, 100), 600));
     }
   });
-
-  const menu = Menu.buildFromTemplate(template);
-  tray.setContextMenu(menu);
 }
 
-function buildProgressBar(percent) {
-  const filled = Math.round(percent / 5);
-  const empty = 20 - filled;
-  return '\u25A0'.repeat(filled) + '\u25A1'.repeat(empty);
+// ── Send state to popover ──
+
+function sendState() {
+  if (popoverWin && !popoverWin.isDestroyed()) {
+    popoverWin.webContents.send('tray-state-update', { ...trayState });
+  }
 }
 
-let lastMenuUpdate = 0;
+// ── Public API (called from main.js) ──
+
+let lastUpdate = 0;
 
 function setIngestProgress(data) {
-  ingestState = data;
+  trayState.appState = 'importing';
+  trayState.activeVolume = data.volumeName;
+  trayState.import = {
+    volumeName: data.volumeName,
+    percent: data.percent || 0,
+    currentFile: data.fileName,
+    bytesCopied: data.totalBytesCopied,
+    totalBytes: data.totalSourceSize,
+    filesCopied: data.current,
+    totalFiles: data.total,
+    speed: data.bytesPerSec,
+    eta: data.etaMs,
+    skipped: data.skippedCount,
+    errors: data.errorCount
+  };
 
-  // Always update the menu bar title (lightweight)
+  // Always update menu bar title
   if (tray) {
     tray.setTitle(` ${data.percent}%`);
   }
 
-  // Throttle context menu rebuilds to every 2 seconds
+  // Throttle popover updates to every 500ms
   const now = Date.now();
-  if (now - lastMenuUpdate > 2000) {
-    lastMenuUpdate = now;
-    updateMenu();
+  if (now - lastUpdate > 500) {
+    lastUpdate = now;
+    sendState();
   }
 }
 
 function setIngestComplete(data) {
-  ingestState = null;
-  lastImport = {
+  trayState.appState = 'idle';
+  trayState.import = null;
+  trayState.activeVolume = null;
+  trayState.lastImport = {
     volumeName: data.volumeName,
     fileCount: data.fileCount,
     totalSize: data.totalSize,
     elapsed: data.elapsed,
-    skippedCount: data.skippedCount || 0,
-    errorCount: data.errorCount || 0,
+    skipped: data.skippedCount || 0,
+    errors: data.errorCount || 0,
     avgSpeed: data.elapsed > 0 ? (data.totalSize / (data.elapsed / 1000)) : 0
   };
-  // Clear the menu bar title, show checkmark briefly
+
   if (tray) {
     tray.setTitle(' Done');
     setTimeout(() => {
       if (tray) tray.setTitle('');
     }, 5000);
   }
-  updateMenu();
+
+  sendState();
 }
 
 function clearIngest() {
-  ingestState = null;
+  trayState.appState = 'idle';
+  trayState.import = null;
+  trayState.activeVolume = null;
   if (tray) tray.setTitle('');
-  updateMenu();
+  sendState();
 }
 
 function setPaused(paused) {
-  isPaused = paused;
-  updateMenu();
+  trayState.isPaused = paused;
+  sendState();
+}
+
+function addVolume(volumeName) {
+  if (!trayState.detectedVolumes.includes(volumeName)) {
+    trayState.detectedVolumes.push(volumeName);
+    sendState();
+  }
+}
+
+function removeVolume(volumeName) {
+  const idx = trayState.detectedVolumes.indexOf(volumeName);
+  if (idx !== -1) {
+    trayState.detectedVolumes.splice(idx, 1);
+    sendState();
+  }
 }
 
 function setActiveIcon(active) {
@@ -212,9 +288,7 @@ function setActiveIcon(active) {
   const iconPath = path.join(__dirname, '..', '..', 'assets', 'icons', iconName);
   try {
     const icon = nativeImage.createFromPath(iconPath);
-    if (!icon.isEmpty()) {
-      tray.setImage(icon);
-    }
+    if (!icon.isEmpty()) tray.setImage(icon);
   } catch {
     // ignore missing icon
   }
@@ -230,7 +304,8 @@ module.exports = {
   setIngestComplete,
   clearIngest,
   setPaused,
+  addVolume,
+  removeVolume,
   setActiveIcon,
-  getTray,
-  updateMenu
+  getTray
 };
