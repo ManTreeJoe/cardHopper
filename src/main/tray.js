@@ -36,7 +36,7 @@ function createTray({ openSettings, togglePause, cancelImport }) {
   }
 
   tray = new Tray(icon);
-  tray.setToolTip('CardHopper');
+  tray.setToolTip('Card Hopper');
 
   // Click toggles popover (no native context menu)
   tray.on('click', (_event, bounds) => {
@@ -169,8 +169,8 @@ function registerIpc() {
     const { dialog } = require('electron');
     dialog.showMessageBox({
       type: 'info',
-      title: 'About CardHopper',
-      message: 'CardHopper',
+      title: 'About Card Hopper',
+      message: 'Card Hopper',
       detail: `Version ${app.getVersion()}\n\nAutomatic SD card media importer.\nBuilt with Electron.\n\nCopyright \u00A9 2025`,
       buttons: ['OK']
     });

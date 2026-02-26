@@ -10,7 +10,7 @@ function notify(title, body) {
   if (!Notification.isSupported()) return;
 
   const notification = new Notification({
-    title: `CardHopper: ${title}`,
+    title: `Card Hopper: ${title}`,
     body,
     silent: false
   });

@@ -167,7 +167,7 @@ async function promptForLabel(volumeName) {
 
   const { response, checkboxChecked } = await dialog.showMessageBox({
     type: 'question',
-    title: 'CardHopper — New Card Detected',
+    title: 'Card Hopper — New Card Detected',
     message: `Import from "${volumeName}"`,
     detail: 'Enter a shoot name to organize this import, or leave blank for default.',
     buttons: ['Import', 'Skip'],
@@ -199,7 +199,7 @@ async function showLabelPrompt(volumeName) {
       minimizable: false,
       maximizable: false,
       alwaysOnTop: true,
-      title: 'CardHopper',
+      title: 'Card Hopper',
       webPreferences: {
         contextIsolation: false,
         nodeIntegration: true
