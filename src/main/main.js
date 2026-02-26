@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog } = require('electron');
+const { exec } = require('child_process');
 const log = require('electron-log');
 const chokidar = require('chokidar');
 const { getStore, getEnabledExtensions } = require('./store');
@@ -35,6 +36,7 @@ let ingestEngine;
 const ingestQueue = [];
 let isIngesting = false;
 let folderWatchers = []; // chokidar watchers for watched folders
+let lastIngestedVolume = null; // track volume for auto-eject
 
 app.whenReady().then(async () => {
   const store = getStore();
@@ -116,6 +118,12 @@ app.whenReady().then(async () => {
     setIngestComplete(data);
     notifyIngestComplete(data.volumeName, data.fileCount, data.totalSize);
     isIngesting = false;
+
+    if (store.get('autoEject') && lastIngestedVolume?.device) {
+      ejectVolume(lastIngestedVolume);
+    }
+    lastIngestedVolume = null;
+
     processQueue();
   });
 
@@ -275,6 +283,7 @@ async function processQueue() {
 
   isIngesting = true;
   const { volume, label } = ingestQueue.shift();
+  lastIngestedVolume = volume;
 
   try {
     await ingestEngine.ingest(volume, { label });
@@ -347,6 +356,28 @@ function startFolderWatchers() {
 
     folderWatchers.push(watcher);
   }
+}
+
+// ── Eject ──
+
+function ejectVolume(volume) {
+  let cmd;
+  if (process.platform === 'darwin') {
+    cmd = `diskutil eject ${volume.device}`;
+  } else if (process.platform === 'linux') {
+    cmd = `umount ${JSON.stringify(volume.mountpoint)}`;
+  } else {
+    return; // Windows eject is complex — skip for now
+  }
+
+  log.info(`Auto-ejecting: ${volume.mountpoint}`);
+  exec(cmd, (err) => {
+    if (err) {
+      log.warn(`Eject failed for ${volume.mountpoint}: ${err.message}`);
+    } else {
+      log.info(`Ejected: ${volume.mountpoint}`);
+    }
+  });
 }
 
 // ── Cleanup ──

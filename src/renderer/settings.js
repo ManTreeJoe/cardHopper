@@ -37,6 +37,7 @@ async function loadSettings() {
   document.getElementById('verifyChecksums').checked = settings.verifyChecksums ?? true;
   document.getElementById('autoDelete').checked = settings.autoDelete ?? false;
   updateAutoDeleteWarning();
+  document.getElementById('autoEject').checked = settings.autoEject ?? false;
 
   // Notifications
   document.getElementById('notif-onStart').checked = settings.notifications?.onStart ?? true;
@@ -149,6 +150,10 @@ document.getElementById('verifyChecksums').addEventListener('change', (e) => {
 document.getElementById('autoDelete').addEventListener('change', (e) => {
   window.cardhopper.setSetting('autoDelete', e.target.checked);
   updateAutoDeleteWarning();
+});
+
+document.getElementById('autoEject').addEventListener('change', (e) => {
+  window.cardhopper.setSetting('autoEject', e.target.checked);
 });
 
 function updateAutoDeleteWarning() {

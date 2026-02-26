@@ -14,10 +14,15 @@ mac:
   category: public.app-category.photography
   target:
     - dmg
+    - pkg
     - zip
   icon: assets/icons/icon.icns
-  hardenedRuntime: false
-  identity: null
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize:
+    teamId: ${APPLE_TEAM_ID}
   extendInfo:
     LSUIElement: true
 
