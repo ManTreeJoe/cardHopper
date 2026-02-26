@@ -17,7 +17,7 @@ function createSettingsWindow() {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: 'CardHopper Settings',
+    title: 'Card Hopper Settings',
     show: false,
     webPreferences: {
       contextIsolation: true,

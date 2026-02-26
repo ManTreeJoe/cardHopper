@@ -4,7 +4,7 @@ const AutoLaunch = require('auto-launch');
 const log = require('electron-log');
 
 const autoLauncher = new AutoLaunch({
-  name: 'CardHopper',
+  name: 'Card Hopper',
   path: app.getPath('exe')
 });
 

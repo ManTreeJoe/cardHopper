@@ -1,5 +1,6 @@
 {
   "name": "cardhopper",
+  "productName": "Card Hopper",
   "version": "1.0.0",
   "description": "SD Card auto-ingest app — automatically copies media from SD cards to your computer",
   "main": "src/main/main.js",
