@@ -17,8 +17,16 @@ const schema = {
   },
   organizationScheme: {
     type: 'string',
-    enum: ['date', 'flat', 'year-month'],
-    default: 'date'
+    enum: ['date-type', 'date', 'year-month', 'flat', 'custom'],
+    default: 'date-type'
+  },
+  typeFolderNames: {
+    type: 'object',
+    default: { images: 'Photos', video: 'Video', audio: 'Audio', raw: 'RAW' }
+  },
+  customStructureTemplate: {
+    type: 'string',
+    default: '{date}/{type}'
   },
   autoDelete: {
     type: 'boolean',
@@ -121,4 +129,13 @@ function getEnabledExtensions() {
   return extensions;
 }
 
-module.exports = { getStore, MEDIA_EXTENSIONS, getEnabledExtensions };
+// Returns the category key ('images', 'video', 'audio', 'raw') for a given extension, or null
+function getExtensionCategory(ext) {
+  const lower = ext.toLowerCase();
+  for (const [category, exts] of Object.entries(MEDIA_EXTENSIONS)) {
+    if (exts.includes(lower)) return category;
+  }
+  return null;
+}
+
+module.exports = { getStore, MEDIA_EXTENSIONS, getEnabledExtensions, getExtensionCategory };

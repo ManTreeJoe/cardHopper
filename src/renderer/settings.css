@@ -221,6 +221,26 @@ button.btn:hover {
   font-size: 11px !important;
 }
 
+/* Type folder name grid */
+.type-folder-grid {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 5px 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.type-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.type-folder-grid input {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

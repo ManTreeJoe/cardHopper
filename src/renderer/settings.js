@@ -14,7 +14,8 @@ async function loadSettings() {
 
   // General
   document.getElementById('destinationFolder').value = settings.destinationFolder || '';
-  document.getElementById('organizationScheme').value = settings.organizationScheme || 'date';
+  document.getElementById('organizationScheme').value = settings.organizationScheme || 'date-type';
+  updateSchemeUI(settings.organizationScheme || 'date-type');
   document.getElementById('duplicateHandling').value = settings.duplicateHandling || 'rename';
   document.getElementById('backupEnabled').checked = settings.backupEnabled || false;
   document.getElementById('backupFolder').value = settings.backupFolder || '';
@@ -44,6 +45,16 @@ async function loadSettings() {
   document.getElementById('notif-onComplete').checked = settings.notifications?.onComplete ?? true;
   document.getElementById('notif-onError').checked = settings.notifications?.onError ?? true;
 
+  // Type folder names
+  const tfn = settings.typeFolderNames || {};
+  document.getElementById('tf-images').value = tfn.images ?? 'Photos';
+  document.getElementById('tf-video').value  = tfn.video  ?? 'Video';
+  document.getElementById('tf-audio').value  = tfn.audio  ?? 'Audio';
+  document.getElementById('tf-raw').value    = tfn.raw    ?? 'RAW';
+
+  // Custom template
+  document.getElementById('customStructureTemplate').value = settings.customStructureTemplate || '{date}/{type}';
+
   // Advanced
   document.getElementById('launchAtLogin').checked = settings.launchAtLogin ?? false;
 }
@@ -72,6 +83,32 @@ document.getElementById('pickBackupFolder').addEventListener('click', async () =
 // Auto-save: General
 document.getElementById('organizationScheme').addEventListener('change', (e) => {
   window.cardhopper.setSetting('organizationScheme', e.target.value);
+  updateSchemeUI(e.target.value);
+});
+
+function updateSchemeUI(scheme) {
+  document.getElementById('typeFolderSection').style.display =
+    (scheme === 'date-type' || scheme === 'custom') ? 'block' : 'none';
+  document.getElementById('customTemplateSection').style.display =
+    scheme === 'custom' ? 'block' : 'none';
+}
+
+async function saveTypeFolderNames() {
+  const settings = await window.cardhopper.getSettings();
+  const tfn = settings.typeFolderNames || {};
+  tfn.images = document.getElementById('tf-images').value.trim() || 'Photos';
+  tfn.video  = document.getElementById('tf-video').value.trim()  || 'Video';
+  tfn.audio  = document.getElementById('tf-audio').value.trim()  || 'Audio';
+  tfn.raw    = document.getElementById('tf-raw').value.trim()    || 'RAW';
+  window.cardhopper.setSetting('typeFolderNames', tfn);
+}
+
+['tf-images', 'tf-video', 'tf-audio', 'tf-raw'].forEach(id => {
+  document.getElementById(id).addEventListener('change', saveTypeFolderNames);
+});
+
+document.getElementById('customStructureTemplate').addEventListener('change', (e) => {
+  window.cardhopper.setSetting('customStructureTemplate', e.target.value);
 });
 
 document.getElementById('duplicateHandling').addEventListener('change', (e) => {

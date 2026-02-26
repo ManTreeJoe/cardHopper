@@ -44,10 +44,31 @@
       <div class="field">
         <label>Organization Scheme</label>
         <select id="organizationScheme">
-          <option value="date">Date folders (2025-01-15/)</option>
+          <option value="date-type">Date + File Type (2025-01-15/Photos/)</option>
+          <option value="date">Date only (2025-01-15/)</option>
           <option value="year-month">Year/Month (2025/01/)</option>
           <option value="flat">Flat (all in one folder)</option>
+          <option value="custom">Custom template</option>
         </select>
+      </div>
+
+      <div id="typeFolderSection" class="subsection">
+        <label style="font-size:11px; color:#a89f91; display:block; margin-bottom:6px;">Type subfolder names</label>
+        <div class="type-folder-grid">
+          <span class="type-label">Photos</span>
+          <input type="text" id="tf-images" placeholder="Photos">
+          <span class="type-label">Video</span>
+          <input type="text" id="tf-video" placeholder="Video">
+          <span class="type-label">Audio</span>
+          <input type="text" id="tf-audio" placeholder="Audio">
+          <span class="type-label">RAW</span>
+          <input type="text" id="tf-raw" placeholder="RAW">
+        </div>
+      </div>
+
+      <div id="customTemplateSection" class="subsection">
+        <input type="text" id="customStructureTemplate" placeholder="{date}/{type}">
+        <span class="hint">Tokens: {date} {year} {month} {day} {type} {label}</span>
       </div>
 
       <div class="field">
