@@ -33,6 +33,8 @@ class IngestEngine extends EventEmitter {
     const duplicateHandling = store.get('duplicateHandling');
     const renameEnabled = store.get('renameEnabled');
     const renamePattern = store.get('renamePattern');
+    const typeFolderNames = store.get('typeFolderNames');
+    const customTemplate = store.get('customStructureTemplate');
     const extensions = getEnabledExtensions();
     const volumeName = volume.label || path.basename(volume.mountpoint);
 
@@ -43,7 +45,17 @@ class IngestEngine extends EventEmitter {
     log.info(`Starting ingest: ${volume.mountpoint} -> ${dest}${backupEnabled ? ` + ${backupFolder}` : ''}`);
     if (label) log.info(`Shoot label: ${label}`);
 
-    // Check destination exists
+    // Check destination is accessible — catches disconnected network drives / external SSDs
+    if (!await fse.pathExists(dest)) {
+      const parent = path.dirname(dest);
+      if (!await fse.pathExists(parent)) {
+        this.emit('error', { volumeName, message: `Destination folder is unavailable — is the drive connected?\n${dest}` });
+        this.currentVolume = null;
+        return;
+      }
+    }
+
+    // Create destination if needed
     try {
       await fse.ensureDir(dest);
       if (backupEnabled) await fse.ensureDir(backupFolder);
@@ -97,6 +109,7 @@ class IngestEngine extends EventEmitter {
     let sequenceNum = 0;
     const startTime = Date.now();
     let lastProgressEmit = 0;
+    const sessionCache = new Map(); // maps base date folder → resolved session folder
 
     const emitThrottledProgress = (bytesCurrentFile, fileName) => {
       const now = Date.now();
@@ -157,8 +170,8 @@ class IngestEngine extends EventEmitter {
         if (signal.aborted) break;
 
         // Step 2: Determine destination (with rename + label support)
-        const orgOptions = { label, renameEnabled, renamePattern, sequenceNum };
-        const rawDestPath = buildDestPath(dest, file, scheme, orgOptions);
+        const orgOptions = { label, renameEnabled, renamePattern, sequenceNum, typeFolderNames, customTemplate, sessionCache };
+        const rawDestPath = await buildDestPath(dest, file, scheme, orgOptions);
 
         // Step 3: Resolve duplicates
         const { destPath, action } = await resolveDuplicate(
@@ -194,7 +207,7 @@ class IngestEngine extends EventEmitter {
         // Step 4b: Copy to backup destination if enabled
         let backupDestPath = null;
         if (backupEnabled) {
-          backupDestPath = buildDestPath(backupFolder, file, scheme, orgOptions);
+          backupDestPath = await buildDestPath(backupFolder, file, scheme, orgOptions);
           try {
             await copyFile(file.absolutePath, backupDestPath, { signal });
           } catch (backupErr) {
