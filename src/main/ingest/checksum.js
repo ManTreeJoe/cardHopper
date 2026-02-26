@@ -6,7 +6,7 @@ const fs = require('fs');
  * Returns hex digest string.
  * Supports an AbortSignal for cancellation.
  */
-function checksumFile(filePath, signal) {
+function checksumFile(filePath, signal, onProgress) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       return reject(new Error('Aborted'));
@@ -26,6 +26,7 @@ function checksumFile(filePath, signal) {
 
     stream.on('data', (chunk) => {
       hash.update(chunk);
+      if (onProgress) onProgress(chunk.length);
     });
 
     stream.on('end', () => {

@@ -24,6 +24,10 @@ const schema = {
     type: 'boolean',
     default: false
   },
+  autoEject: {
+    type: 'boolean',
+    default: false
+  },
   verifyChecksums: {
     type: 'boolean',
     default: true

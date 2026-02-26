@@ -96,6 +96,22 @@ class IngestEngine extends EventEmitter {
     let errorCount = 0;
     let sequenceNum = 0;
     const startTime = Date.now();
+    let lastProgressEmit = 0;
+
+    const emitThrottledProgress = (bytesCurrentFile, fileName) => {
+      const now = Date.now();
+      if (now - lastProgressEmit < 250) return;
+      lastProgressEmit = now;
+      this._emitProgress({
+        copiedCount, skippedCount, errorCount,
+        total: files.length,
+        totalBytesCopied: totalBytesCopied + bytesCurrentFile,
+        totalSourceSize,
+        startTime,
+        fileName,
+        volumeName
+      });
+    };
 
     for (let i = 0; i < files.length; i++) {
       if (signal.aborted) {
@@ -130,8 +146,12 @@ class IngestEngine extends EventEmitter {
       try {
         // Step 1: Checksum source
         let sourceHash = null;
+        let bytesChecksummed = 0;
         if (verifyChecksums) {
-          sourceHash = await checksumFile(file.absolutePath, signal);
+          sourceHash = await checksumFile(file.absolutePath, signal, (delta) => {
+            bytesChecksummed += delta;
+            emitThrottledProgress(bytesChecksummed, file.fileName);
+          });
         }
 
         if (signal.aborted) break;
@@ -162,7 +182,12 @@ class IngestEngine extends EventEmitter {
         }
 
         // Step 4: Stream-copy to primary destination
-        await copyFile(file.absolutePath, destPath, { signal });
+        await copyFile(file.absolutePath, destPath, {
+          signal,
+          onProgress: (bytesCopied) => {
+            emitThrottledProgress(bytesCopied, file.fileName);
+          }
+        });
 
         if (signal.aborted) break;
 
