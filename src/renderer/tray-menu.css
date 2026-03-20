@@ -115,6 +115,13 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+.import-speed {
+  font-size: 11px;
+  color: #a89f91;
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .cancel-btn {
   display: flex;
   align-items: center;

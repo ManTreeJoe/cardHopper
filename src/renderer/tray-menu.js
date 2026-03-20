@@ -22,6 +22,7 @@ const openFolderBtn = document.getElementById('openFolderBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const pauseLabel = document.getElementById('pauseLabel');
 const pauseIcon = document.getElementById('pauseIcon');
+const importSpeed = document.getElementById('importSpeed');
 
 // Buttons
 cancelBtn.addEventListener('click', () => api.cancelImport());
@@ -96,6 +97,14 @@ function render(state) {
     currentFile.textContent = imp.currentFile || '—';
     sizeProgress.textContent = `${formatBytes(imp.bytesCopied)} / ${formatBytes(imp.totalBytes)}`;
     fileProgress.textContent = `${imp.filesCopied}/${imp.totalFiles} files`;
+
+    if (imp.speed > 0) {
+      const etaStr = imp.eta > 0 ? ` · ETA ${formatDuration(imp.eta)}` : '';
+      importSpeed.textContent = `${formatSpeed(imp.speed)}${etaStr}`;
+      importSpeed.classList.remove('hidden');
+    } else {
+      importSpeed.classList.add('hidden');
+    }
   }
 
   // Last import

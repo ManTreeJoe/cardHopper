@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About Card Hopper</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #161412;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-user-select: none;
+      cursor: default;
+      color: #f5f0e8;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 32px 24px 24px;
+      gap: 0;
+    }
+
+    .app-icon {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 16px;
+    }
+
+    .app-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f5f0e8;
+      letter-spacing: -0.01em;
+    }
+
+    .app-version {
+      font-size: 12px;
+      color: #665e54;
+      margin-top: 4px;
+      margin-bottom: 14px;
+    }
+
+    .divider {
+      width: 40px;
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin-bottom: 14px;
+    }
+
+    .app-description {
+      font-size: 12px;
+      color: #8a8076;
+      text-align: center;
+      line-height: 1.6;
+      max-width: 220px;
+      margin-bottom: 24px;
+    }
+
+    .coffee-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 20px;
+      background: rgba(232, 108, 42, 0.12);
+      color: #e86c2a;
+      border: 1px solid rgba(232, 108, 42, 0.25);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      margin-bottom: 10px;
+      width: 100%;
+      max-width: 220px;
+    }
+
+    .coffee-btn:hover {
+      background: rgba(232, 108, 42, 0.2);
+      border-color: rgba(232, 108, 42, 0.4);
+    }
+
+    .coffee-btn:active {
+      background: rgba(232, 108, 42, 0.28);
+    }
+
+    .coffee-icon {
+      font-size: 15px;
+    }
+
+    .copyright {
+      font-size: 11px;
+      color: #3d3830;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img class="app-icon" src="../../assets/icons/icon-menu.png" draggable="false">
+    <div class="app-name">Card Hopper</div>
+    <div class="app-version" id="versionLabel">Version —</div>
+    <div class="divider"></div>
+    <div class="app-description">Automatic SD card media importer for photographers &amp; videographers.</div>
+    <button class="coffee-btn" id="coffeeBtn">
+      <span class="coffee-icon">☕</span>
+      Buy Me a Coffee
+    </button>
+    <div class="copyright" id="copyright">© 2025</div>
+  </div>
+
+  <script>
+    const api = window.aboutApi;
+
+    api.getVersion().then(v => {
+      document.getElementById('versionLabel').textContent = `Version ${v}`;
+    });
+
+    document.getElementById('copyright').textContent = `© ${new Date().getFullYear()}`;
+
+    document.getElementById('coffeeBtn').addEventListener('click', () => {
+      api.openUrl('https://nathanbupte.com/tip');
+    });
+  </script>
+</body>
+</html>

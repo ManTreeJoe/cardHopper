@@ -5,6 +5,7 @@ const { getStore } = require('./store');
 
 let tray = null;
 let popoverWin = null;
+let aboutWin = null;
 let lastBlurTime = 0;
 
 // Callbacks from main.js
@@ -164,16 +165,40 @@ function registerIpc() {
     if (dest) shell.openPath(dest);
   });
 
+  ipcMain.handle('about-get-version', () => app.getVersion());
+
+  ipcMain.on('about-open-url', (_event, url) => {
+    shell.openExternal(url);
+  });
+
+  ipcMain.on('about-close', () => {
+    aboutWin?.close();
+  });
+
   ipcMain.on('tray-about', () => {
     popoverWin?.hide();
-    const { dialog } = require('electron');
-    dialog.showMessageBox({
-      type: 'info',
+
+    if (aboutWin && !aboutWin.isDestroyed()) {
+      aboutWin.focus();
+      return;
+    }
+
+    aboutWin = new BrowserWindow({
+      width: 300,
+      height: 340,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
       title: 'About Card Hopper',
-      message: 'Card Hopper',
-      detail: `Version ${app.getVersion()}\n\nAutomatic SD card media importer.\nBuilt with Electron.\n\nCopyright \u00A9 2025`,
-      buttons: ['OK']
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        preload: path.join(__dirname, '..', 'renderer', 'about-preload.js')
+      }
     });
+
+    aboutWin.loadFile(path.join(__dirname, '..', 'renderer', 'about.html'));
+    aboutWin.on('closed', () => { aboutWin = null; });
   });
 
   ipcMain.on('tray-quit', () => {
