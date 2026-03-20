@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('trayApi', {
   openSettings: () => ipcRenderer.send('tray-open-settings'),
   togglePause: () => ipcRenderer.send('tray-toggle-pause'),
   openImportFolder: () => ipcRenderer.send('tray-open-import-folder'),
+  checkForUpdates: () => ipcRenderer.send('tray-check-for-updates'),
   about: () => ipcRenderer.send('tray-about'),
   quit: () => ipcRenderer.send('tray-quit'),
   setHeight: (h) => ipcRenderer.send('tray-set-height', h),

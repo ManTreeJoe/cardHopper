@@ -2,6 +2,11 @@ appId: com.cardhopper.app
 productName: Card Hopper
 copyright: Copyright © 2025
 
+publish:
+  provider: github
+  owner: ManTreeJoe
+  repo: cardHopper
+
 directories:
   output: dist
 

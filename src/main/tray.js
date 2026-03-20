@@ -24,8 +24,8 @@ const trayState = {
 
 // ── Create ──
 
-function createTray({ openSettings, togglePause, cancelImport }) {
-  callbacks = { openSettings, togglePause, cancelImport };
+function createTray({ openSettings, togglePause, cancelImport, checkForUpdates }) {
+  callbacks = { openSettings, togglePause, cancelImport, checkForUpdates };
 
   const iconPath = path.join(__dirname, '..', '..', 'assets', 'icons', 'tray-iconTemplate.png');
   let icon;
@@ -173,6 +173,11 @@ function registerIpc() {
 
   ipcMain.on('about-close', () => {
     aboutWin?.close();
+  });
+
+  ipcMain.on('tray-check-for-updates', () => {
+    popoverWin?.hide();
+    if (callbacks.checkForUpdates) callbacks.checkForUpdates(true);
   });
 
   ipcMain.on('tray-about', () => {

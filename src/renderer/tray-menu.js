@@ -28,6 +28,7 @@ const importSpeed = document.getElementById('importSpeed');
 cancelBtn.addEventListener('click', () => api.cancelImport());
 document.getElementById('settingsBtn').addEventListener('click', () => api.openSettings());
 pauseBtn.addEventListener('click', () => api.togglePause());
+document.getElementById('checkUpdatesBtn').addEventListener('click', () => api.checkForUpdates());
 document.getElementById('aboutBtn').addEventListener('click', () => api.about());
 openFolderBtn.addEventListener('click', () => api.openImportFolder());
 document.getElementById('quitBtn').addEventListener('click', () => api.quit());

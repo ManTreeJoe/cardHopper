@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog } = require('electron');
 const { exec } = require('child_process');
 const log = require('electron-log');
+const { autoUpdater } = require('electron-updater');
 const chokidar = require('chokidar');
 const { getStore, getEnabledExtensions } = require('./store');
 const { createTray, setIngestProgress, setIngestComplete, clearIngest, setPaused, setActiveIcon, addVolume, removeVolume } = require('./tray');
@@ -53,6 +54,7 @@ app.whenReady().then(async () => {
   // Create tray
   createTray({
     openSettings: () => createSettingsWindow(),
+    checkForUpdates: (userTriggered) => checkForUpdates(userTriggered),
     togglePause: () => {
       const paused = !store.get('paused');
       store.set('paused', paused);
@@ -154,7 +156,80 @@ app.whenReady().then(async () => {
   });
 
   log.info('CardHopper ready');
+
+  // Check for updates silently in background (10s after launch)
+  setTimeout(() => checkForUpdates(false), 10000);
 });
+
+// ── Auto-updater ──
+
+autoUpdater.autoDownload = false;
+autoUpdater.logger = log;
+
+autoUpdater.on('update-available', (info) => {
+  log.info(`Update available: ${info.version}`);
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Available',
+    message: `Card Hopper ${info.version} is available`,
+    detail: 'Would you like to download and install it now?',
+    buttons: ['Download & Install', 'Later'],
+    defaultId: 0,
+    cancelId: 1
+  }).then(({ response }) => {
+    if (response === 0) {
+      autoUpdater.downloadUpdate();
+    }
+  });
+});
+
+autoUpdater.on('update-not-available', (_, userTriggered) => {
+  if (userTriggered) {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'No Updates',
+      message: 'Card Hopper is up to date.',
+      buttons: ['OK']
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', () => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Ready',
+    message: 'Update downloaded',
+    detail: 'Restart Card Hopper to apply the update.',
+    buttons: ['Restart Now', 'Later'],
+    defaultId: 0,
+    cancelId: 1
+  }).then(({ response }) => {
+    if (response === 0) autoUpdater.quitAndInstall();
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  log.warn('Auto-updater error:', err.message);
+});
+
+function checkForUpdates(userTriggered = true) {
+  autoUpdater.checkForUpdates().then((result) => {
+    if (userTriggered && result && !result.updateInfo) {
+      autoUpdater.emit('update-not-available', null, true);
+    }
+  }).catch((err) => {
+    log.warn('Update check failed:', err.message);
+    if (userTriggered) {
+      dialog.showMessageBox({
+        type: 'warning',
+        title: 'Update Check Failed',
+        message: 'Could not check for updates.',
+        detail: err.message,
+        buttons: ['OK']
+      });
+    }
+  });
+}
 
 // ── Shoot label prompt ──
 
