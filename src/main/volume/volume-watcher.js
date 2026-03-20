@@ -149,14 +149,20 @@ class VolumeWatcher extends EventEmitter {
         for (const disk of uniqueWholeDisks) {
           exec(`diskutil info /dev/${disk}`, (err2, info) => {
             if (!err2 && info) {
-              // Check for "Removable Media: Removable" or "Ejectable: Yes"
-              const isRemovable = /Removable Media:\s*(Removable|Yes)/i.test(info);
-              const isEjectable = /Ejectable:\s*Yes/i.test(info);
-              // Also match SD card protocol specifically
-              const isSDCard = /Protocol:\s*Secure Digital/i.test(info);
+              // Skip virtual disks (mounted DMGs, disk images downloaded from the internet, etc.)
+              const isVirtual = /Virtual:\s*Yes/i.test(info);
+              const isDiskImage = /Protocol:\s*Disk Image/i.test(info);
 
-              if (isRemovable || isEjectable || isSDCard) {
-                removableDisks.add(disk);
+              if (!isVirtual && !isDiskImage) {
+                // Check for "Removable Media: Removable" or "Ejectable: Yes"
+                const isRemovable = /Removable Media:\s*(Removable|Yes)/i.test(info);
+                const isEjectable = /Ejectable:\s*Yes/i.test(info);
+                // Also match SD card protocol specifically
+                const isSDCard = /Protocol:\s*Secure Digital/i.test(info);
+
+                if (isRemovable || isEjectable || isSDCard) {
+                  removableDisks.add(disk);
+                }
               }
             }
 
