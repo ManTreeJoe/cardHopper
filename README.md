@@ -10,17 +10,15 @@ Built with Electron — macOS, Windows, Linux.
 
 ## How it works
 
-Card Hopper runs silently in your menu bar. When it sees a removable volume, it scans for media files and starts copying. You'll get a notification when it starts and when it finishes. That's pretty much it.
+Card Hopper runs silently in your menu bar. When it sees a removable volume, it scans for media files and starts copying. You'll get a notification when it starts and when it finishes.
 
 During a transfer you can click the menu bar icon to see live progress — speed, ETA, current file, bytes copied.
 
-![Import progress](assets/screenshots/tray-importing.png)
+![Menu bar](assets/screenshots/menubar.png)
 
 ---
 
 ## Settings
-
-![General settings](assets/screenshots/settings-general.png)
 
 **General** — Pick a destination folder. Optionally a second backup location. Choose how files get organized:
 
@@ -30,15 +28,23 @@ During a transfer you can click the menu bar icon to see live progress — speed
 - `Flat` — everything in one folder
 - `Custom` — use tokens like `{year}/{month}/{label}`
 
+![General settings](assets/screenshots/settings-general.png)
+
 **File Types** — Toggle images, video, audio, and RAW on or off individually.
 
-![File types settings](assets/screenshots/settings-filetypes.png)
+![File types](assets/screenshots/settings-filetypes.png)
 
 **Import** — Optional shoot label prompt on each import (appends to folder name: `2025-12-25_Wedding/`). Watched folders for things like drone WiFi transfer or tethering directories.
 
-**Safety** — SHA-256 checksum verification after every copy, auto-eject when done, auto-delete originals (off by default, there's a warning). Notification prefs.
+![Import settings](assets/screenshots/settings-import.png)
+
+**Safety** — SHA-256 checksum verification after every copy, auto-eject when done, auto-delete originals (off by default). Notification prefs.
+
+![Safety settings](assets/screenshots/settings-safety.png)
 
 **Advanced** — Launch at login.
+
+![Advanced settings](assets/screenshots/settings-advanced.png)
 
 ---
 
