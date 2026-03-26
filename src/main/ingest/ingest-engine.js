@@ -99,8 +99,9 @@ class IngestEngine extends EventEmitter {
 
     this.emit('start', { volumeName, fileCount: files.length, totalSourceSize });
 
-    // Load existing manifest for resume support
-    const manifestPath = path.join(dest, '.cardhopper-manifest.json');
+    // Load existing manifest for resume support (per-volume so different cards don't collide)
+    const safeVolumeName = volumeName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const manifestPath = path.join(dest, `.cardhopper-manifest-${safeVolumeName}.json`);
     let manifest = await loadManifest(manifestPath);
     let copiedCount = 0;
     let skippedCount = 0;
