@@ -213,6 +213,17 @@ autoUpdater.on('error', (err) => {
 });
 
 function checkForUpdates(userTriggered = true) {
+  if (!app.isPackaged) {
+    if (userTriggered) {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Update Check',
+        message: 'Running in development mode — updates are only available in the packaged app.',
+        buttons: ['OK']
+      });
+    }
+    return;
+  }
   autoUpdater.checkForUpdates().then((result) => {
     if (userTriggered && result && !result.updateInfo) {
       autoUpdater.emit('update-not-available', null, true);
